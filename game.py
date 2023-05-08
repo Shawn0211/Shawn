@@ -2,13 +2,18 @@ import pygame
 import sys
 import random
 import time
-
+folders = {
+    'audio': 'assets\\audio\\',
+    'fonts': 'assets\\fonts\\',
+    'img': 'assets\\img\\',
+    'save': 'assets\\save\\',
+}
 pygame.init() #初始化pygame module
 screen = pygame.display.set_mode((1280, 720)) # 建立 window 視窗畫布，大小為 1280x720
 clock = pygame.time.Clock() #時間控制模組 用來管理時間以及遊戲幀數
 pygame.display.set_caption("Dino Game") #設定遊戲介面的標題
-game_font = pygame.font.Font("PressStart2P-Regular.ttf", 24) #文字模組，用來顯示文字，可用來顯示儀表板資料
-score_file = "high_score.txt" #紀錄最高成績
+game_font = pygame.font.Font(folders["fonts"]+"PressStart2P-Regular.ttf", 24) #文字模組，用來顯示文字，可用來顯示儀表板資料
+score_file = folders["save"]+"high_score.txt" #紀錄最高成績
 
 
 #雲
@@ -28,41 +33,59 @@ class Cloud(pygame.sprite.Sprite): #繼承pygame.sprite.Sprite對象
 #恐龍
 class Dino(pygame.sprite.Sprite):
     name = "Dino"
+    normal_height = 0
+    ducking_height = 0
+    rising_height = 0
     def __init__(self, x_pos, y_pos): #設定恐龍的座標
         super().__init__()
         self.running_sprites = []
         self.ducking_sprites = []
 
         self.running_sprites.append(pygame.transform.scale(
-            pygame.image.load("Dino1.png"), (80, 100)))
+            pygame.image.load(folders["img"]+"Dino1.png"), (80, 100)))
         self.running_sprites.append(pygame.transform.scale(
-            pygame.image.load("Dino2.png"), (80, 100)))
+            pygame.image.load(folders["img"]+"Dino2.png"), (80, 100)))
 
         self.ducking_sprites.append(pygame.transform.scale(
-            pygame.image.load(f"DinoDucking1.png"), (110, 60)))
+            pygame.image.load(folders["img"]+"DinoDucking1.png"), (110, 60)))
         self.ducking_sprites.append(pygame.transform.scale(
-            pygame.image.load(f"DinoDucking2.png"), (110, 60)))
+            pygame.image.load(folders["img"]+"DinoDucking2.png"), (110, 60)))
 
         self.x_pos = x_pos
         self.y_pos = y_pos
+        self.normal_height = y_pos
+        self.ducking_height = y_pos + 20
+        self.rising_height = y_pos - 260
         self.current_image = 0
         self.image = self.running_sprites[self.current_image]
         self.rect = self.image.get_rect(center=(self.x_pos, self.y_pos))
-        self.velocity = 60
-        self.gravity = 3.8
+        self.velocity = 30
+        self.gravity = 4.5
         self.ducking = False
         self.jump_delay = 5
         self.jump_count = 0
+        self.rising = False
 
     def jump(self): #恐龍跳躍時會換成跳躍動作，跳到一定高度會落下
         jump_sfx.play()
-        if self.rect.centery >= 360:
-            while self.jump_count < self.jump_delay:
-                self.rect.centery -= self.velocity
-                self.jump_count += 1
-            self.jump_count = 0
-            while self.rect.centery - self.velocity > 40:
-                self.rect.centery -= 1
+        if self.rect.centery >= self.normal_height:
+            self.rising = True
+        #     for i in range(self.jump_delay):
+        #         self.rect.centery -= self.velocity
+                
+        #     while self.rect.centery - self.velocity > 40:
+        #         self.rect.centery -= 1
+    
+    def rise(self):
+        if self.rising and self.rect.centery >= self.rising_height:
+            self.rect.centery -= self.velocity
+            return True
+        elif self.rising and not self.rect.centery < self.rising_height:
+            self.rising = False
+            return False
+        else:
+            self.rising = False
+            return False
 
     def duck(self):
         self.ducking = True
@@ -70,10 +93,10 @@ class Dino(pygame.sprite.Sprite):
 
     def unduck(self):
         self.ducking = False
-        self.rect.centery = 360 #當沒有跳的時候，回到原本的高度
+        self.rect.centery = self.normal_height #當沒有跳的時候，回到原本的高度
 
     def apply_gravity(self): #當恐龍不在地面時 就會因重力落下
-        if self.rect.centery <= 360:
+        if self.rect.centery <= self.normal_height:
             self.rect.centery += self.gravity
 
     def update(self): 
@@ -82,13 +105,11 @@ class Dino(pygame.sprite.Sprite):
 
     def animate(self): #讓恐龍能夠看起來像是在跑
         self.current_image += 0.05
-        if self.current_image >= 2:
-            self.current_image = 0
 
         if self.ducking:
-            self.image = self.ducking_sprites[int(self.current_image)]
+            self.image = self.ducking_sprites[int(self.current_image)%2]
         else:
-            self.image = self.running_sprites[int(self.current_image)]
+            self.image = self.running_sprites[int(self.current_image)%2]
 
 
 #仙人掌
@@ -101,7 +122,7 @@ class Cactus(pygame.sprite.Sprite): #繼承pygame.sprite.Sprite對象
         self.sprites = [] #負責對sprite做以下指令
         for i in range(1, 7):
             current_sprite = pygame.transform.scale(
-                pygame.image.load(f"cactus{i}.png"), (80, 80)) #匯入仙人掌圖片並給予座標
+                pygame.image.load(folders["img"]+f"cactus{i}.png"), (80, 80)) #匯入仙人掌圖片並給予座標
             self.sprites.append(current_sprite) #呼叫sprite並附加上當前的sprite
         self.image = random.choice(self.sprites) #匯入圖片
         self.rect = self.image.get_rect(center=(self.x_pos, self.y_pos)) #顯示圖片並展現座標
@@ -120,7 +141,7 @@ class Coin(pygame.sprite.Sprite): #繼承pygame.sprite.Sprite對象
         self.y_pos = y_pos #初始化Y座標
         self.sprites = [] #負責對sprite做以下指令
         current_sprite = pygame.transform.scale(
-                pygame.image.load(f"coin50.png"), (80, 80)) #匯入仙人掌圖片並給予座標
+                pygame.image.load(folders["img"]+"coin50.png"), (80, 80)) #匯入仙人掌圖片並給予座標
         self.sprites.append(current_sprite) #呼叫sprite並附加上當前的sprite
         self.image = random.choice(self.sprites) #匯入圖片
         self.rect = self.image.get_rect(center=(self.x_pos, self.y_pos)) #顯示圖片並展現座標
@@ -144,10 +165,10 @@ class Ptero(pygame.sprite.Sprite): #繼承pygame.sprite.Sprite對象
         self.sprites = [] #負責對sprite做以下指令
         self.sprites.append(
             pygame.transform.scale(
-                pygame.image.load("Ptero1.png"), (70, 52))) #呼叫圖片1並展現其XY座標
+                pygame.image.load(folders["img"]+"Ptero1.png"), (70, 52))) #呼叫圖片1並展現其XY座標
         self.sprites.append(
             pygame.transform.scale(
-                pygame.image.load("Ptero2.png"), (70, 52))) #呼叫圖片2並展現其XY座標
+                pygame.image.load(folders["img"]+"Ptero2.png"), (70, 52))) #呼叫圖片2並展現其XY座標
         self.current_image = 0
         self.image = self.sprites[self.current_image]
         self.rect = self.image.get_rect(center=(self.x_pos, self.y_pos)) #顯示圖片並展現座標
@@ -159,9 +180,7 @@ class Ptero(pygame.sprite.Sprite): #繼承pygame.sprite.Sprite對象
 
     def animate(self): #定義動畫並執行下列指令
         self.current_image += 0.025 #當前圖片加值0.025
-        if self.current_image >= 2: #如果當前圖片數值>=2
-            self.current_image = 0 #當前圖片數值為0
-        self.image = self.sprites[int(self.current_image)] #呼叫當前圖片數值
+        self.image = self.sprites[int(self.current_image)%2] #呼叫當前圖片數值
 
 
 # Variables
@@ -180,12 +199,12 @@ show_best = False #設定最佳戰績
 
 
 #讀取地面圖片並將其起始位置設定在畫面最左邊，中心點在畫面底部中央
-ground = pygame.image.load("ground.png")
+ground = pygame.image.load(folders["img"]+"ground.png")
 ground = pygame.transform.scale(ground, (1280, 20))
 ground_x = 0
 ground_rect = ground.get_rect(center=(640, 400))
 #讀取雲朵圖片
-cloud = pygame.image.load("cloud.png")
+cloud = pygame.image.load(folders["img"]+"cloud.png")
 cloud = pygame.transform.scale(cloud, (200, 80))
 
 
@@ -203,10 +222,10 @@ dino_group.add(dinosaur)
 
 
 #加入死亡、得分、跳躍音效
-death_sfx = pygame.mixer.Sound("assets_sfx_lose.mp3")
-points_sfx = pygame.mixer.Sound("assets_sfx_100points.mp3")
-jump_sfx = pygame.mixer.Sound("assets_sfx_jump.mp3")
-getCoin_sfx = pygame.mixer.Sound("assets_sfx_getCoin.mp3")
+death_sfx = pygame.mixer.Sound(folders["audio"]+"assets_sfx_lose.mp3")
+points_sfx = pygame.mixer.Sound(folders["audio"]+"assets_sfx_100points.mp3")
+jump_sfx = pygame.mixer.Sound(folders["audio"]+"assets_sfx_jump.mp3")
+getCoin_sfx = pygame.mixer.Sound(folders["audio"]+"assets_sfx_getCoin.mp3")
 
 
 #建立CLOUD_EVENT，每3000毫秒觸發一次來生成雲朵（.USEREVENT是一個常量，用於創建自定義事件）
@@ -268,9 +287,8 @@ while True:
     keys = pygame.key.get_pressed()
     if keys[pygame.K_DOWN]:
         dinosaur.duck()
-    else:
-        if dinosaur.ducking:
-            dinosaur.unduck()
+    elif dinosaur.ducking:
+        dinosaur.unduck()
     #事件處理
     for event in pygame.event.get():
         #關閉遊戲視窗
@@ -299,6 +317,7 @@ while True:
                     dinosaur.jump()
     #每一幀都用白色畫面刷新
     screen.fill("white")
+
 
 
     #遊戲還沒開始時呈現的畫面
@@ -361,6 +380,7 @@ while True:
         player_score_surface = game_font.render(str(int(player_score)), True, ("black"))
         screen.blit(player_score_surface, (1150, 10)) #視窗變數.blit(背景變數, 繪製位置)
 
+        dinosaur.rise()
         cloud_group.update()#更新雲
         cloud_group.draw(screen)#把雲畫到螢幕上
 
